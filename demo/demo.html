@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" style="font-size: 50px">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>parse-html</title>
+    <script src="../dist/vue.js"></script>
+    <style>
+    </style>
+</head>
+<body>  
+    <div id="app">
+        <div>{{prize}}</div>
+    </div>
+    <script>
+        var vm = new Vue({
+            el: '#app',
+            data: {
+                prize: 10
+            }
+        })
+        vm._data.prize = 20
+    </script>
+</body>
+</html>
