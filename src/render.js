@@ -1,7 +1,0 @@
-function render () {
-
-}
-
-export {
-  render
-}

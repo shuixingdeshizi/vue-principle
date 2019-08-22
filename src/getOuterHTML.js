@@ -1,4 +1,3 @@
-
 function getOuterHTML (el) {
   if (el.outerHTML) {
     return el.outerHTML
@@ -9,6 +8,4 @@ function getOuterHTML (el) {
   }
 }
 
-export {
-  getOuterHTML
-}
+export default getOuterHTML

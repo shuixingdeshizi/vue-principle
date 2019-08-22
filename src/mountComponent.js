@@ -1,25 +1,33 @@
-import { createEmptyVNode } from './vnode/index'
-import { Watcher } from './watcher'
+import Watcher from './watcher'
+import getOuterHTML from './getOuterHTML'
+import noop from './noop'
 
-function mountComponent (vm, el) {
+function mountComponent (vm, el, hydrationg) {
+  // if (!vm.$options.render) {
+  //   vm.$options.render = createEmptyVNode
+  // }
 
-  // callHook(vm, 'beforeMount')
+  let template = vm.$options.template
 
-  let updateComponent = () => {
-    debugger
-    const vnode = vm._render()
-    vm._update(vnode)
+  if (!template) {
+    template = getOuterHTML(el)
   }
 
-  // we set this to vm._watcher inside the watcher's constructor
-  // since the watcher's initial patch may call $forceUpdate (e.g. inside child
-  // component's mounted hook), which relies on vm._watcher being already defined
-  new Watcher(vm, updateComponent)
+  // callHook(vm, 'beforeMount')
+  const updateComponent = function  () {
+    const vnode = vm._render()
+    vm._update(vnode, hydrationg)
+  }
 
-  // callHook(vm, 'mounted')
+  new Watcher(vm, updateComponent, noop, {}, true)
+
+  hydrationg = false
+
+  if (vm.$vnode == null) {
+    vm._isMounted = true
+    // callHook(vm, 'mounted')
+  }
   return vm
 }
 
-
-
-export { mountComponent }
+export default mountComponent

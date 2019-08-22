@@ -1,50 +1,52 @@
-import Dep, { pushTarget, popTarget } from './dep'
+import {pushTarget, popTarget} from './dep'
 
-function queueWatcher (watcher) {
-  const id = watcher.id
-  if (has[id] == null) {
-    has[id] = true
-    watcher.run()
+let uid = 0
+
+function Watcher (vm, expOrFn, cb, options, isRenderWatcher) {
+  this.vm = vm
+
+  if (isRenderWatcher) {
+    vm._watcher = this
+  }
+  vm._watchers.push(this)
+
+  if (options) {
+    this.dirty = !!options.dirty
+    this.lazy = !!options.lazy
+    this.sync = !!options.sync
+  }
+
+  this.id = ++uid
+  this.getter = expOrFn
+  this.cb = cb
+
+  this.value = this.lazy ? undefined : this.get()
+}
+
+Watcher.prototype.get = function () {
+  pushTarget(this)
+  const vm = this.vm
+  let value = this.getter.call(vm, vm)
+  popTarget()
+  return value
+}
+
+Watcher.prototype.update = function () {
+  if (this.lazy) {
+    this.dirty = true
+  } else if (this.sync) {
+    this.run()
+  } else {
+    queueWatcher(this)
   }
 }
 
-class Watcher {
-  constructor (vm, expOrFn, cb) {
-    debugger
-      Dep.target = this;
-      this.vm = vm
-      this.cb = cb
-      this.getter = expOrFn
-      this.value = this.lazy ? undefined : this.get()
-  }
-
-  get () {
-    debugger
-    pushTarget(this)
-    let value
-    const vm = this.vm
-
-    try {
-      value = this.getter.call(vm, vm)
-    } catch (e) {
-      console.log(e)
-    } finally {
-      popTarget()
-    }
-    return value
-  }
-
-  update () {
-      console.log("视图更新啦～");
-      queueWatcher(this)
-  }
-
-  run () {
-    this.cb()
+Watcher.prototype.run = function () {
+  const value = this.get()
+  const oldVal = this.value
+  if (value !== oldVal) {
+    this.value = value
   }
 }
 
-
-export {
-  Watcher
-}
+export default Watcher
