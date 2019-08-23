@@ -1,5 +1,7 @@
 import observe from './observe'
 import mountComponent from './mountComponent'
+import compile from './compile'
+import createElement from './vdom/create-element'
 
 function Vue (options = {}) {
   this.$el = options.el
@@ -11,6 +13,20 @@ function Vue (options = {}) {
   this._data = options.data
   observe(this._data)
 
+  this.$createElement = (a, b, c, d) => createElement(this, a, b, c, d, true)
+  this._c = (a, b, c, d) => createElement(this, a, b, c, d, false)
+
+
+  this.__patch__ = function (el, vnode) {
+    debugger
+    el = typeof el === 'string' ? el = document.querySelector(el) : el
+    var node = document.createElement(vnode.tag)
+    el.innerHTML = ''
+    el.appendChild(node)
+    debugger
+  }
+
+  
   if (this.$el) {
     this.$mount(this.$el)
   }
@@ -18,30 +34,85 @@ function Vue (options = {}) {
 
 Vue.prototype.$mount = function (el, hydrating) {
   el = typeof el === 'string' ? document.querySelector(el) : el
+
+
+  var options = this.$options
+  if (!options.render) {
+    var template = options.template;
+    if (template) {
+      if (template.nodeType) {
+        template = template.innerHTML;
+      }
+    } else if (el) {
+
+      function getOuterHTML (el) {
+        if (el.outerHTML) {
+          return el.outerHTML
+        } else {
+          const container = document.createElement('div')
+          container.appendChild(el.cloneNode(true))
+          return container.innerHTML
+        }
+      }
+     
+      template = getOuterHTML(el)
+    }
+
+    if (template) {
+      var ref = compile(template)
+      var render = ref.render;
+      options.render = render;
+    }
+  }
+
   return mountComponent(this, el, hydrating)
 }
 
 Vue.prototype._render = function () {
-  // 生成vnode
   const vm = this
-  const { render } = vm.$options
+
+  const { render, _parentVnode } = vm.$options
+
+  vm.$vnode = _parentVnode
 
   let vnode
   try {
+    // currentRenderingInstance = vm
     vnode = render.call(vm, vm.$createElement)
   } catch (e) {
-    console.log(e)
+    vnode = vm._vnode
+  } finally {
+    // currentRenderingInstance = null
   }
 
-  if (!(vnode instanceof VNode)) {
-    vnode = createEmptyVNode()
+  if (Array.isArray(vnode) && vnode.length === 1) {
+    vnode = vnode[0]
   }
 
+  // if (!(vnode instanceof VNode)) {
+  //   vnode = createEmptyVNode()
+  // }
+  // set parent
+  vnode.parent = _parentVnode
   return vnode
 }
 
-Vue.prototype._update = function () {
+Vue.prototype._update = function (vnode) {
+
   // vnode渲染
+
+  var vm = this;
+  var prevVnode = vm._vnode;
+  vm._vnode = vnode;
+  // Vue.prototype.__patch__ is injected in entry points
+  // based on the rendering backend used.
+  if (!prevVnode) {
+    // initial render
+    vm.$el = vm.__patch__(vm.$el, vnode);
+  } else {
+    // updates
+    vm.$el = vm.__patch__(prevVnode, vnode);
+  }
 }
 
 export default Vue
