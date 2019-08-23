@@ -4,10 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "prod": "cross-env NODE_ENV=production rollup -c ./build/rollup.config.js",
-    "dev": "rollup -c ./build/rollup.config.js",
+    "prod": "cross-env NODE_ENV=production rollup -c ./build/rollup.config.js --environment TARGET:production",
+    "dev": "rollup -c ./build/rollup.config.js --environment TARGET:development",
     "build": "npm run dev && npm run prod",
-    "watch": "rollup -c ./build/rollup.config.js -w"
+    "watch": "rollup -c ./build/rollup.config.js -w --environment TARGET:development",
+    "watch:parseHTML": "rollup -c ./build/rollup.config.js -w --environment TARGET:parseHTML"
   },
   "author": "",
   "license": "ISC",
