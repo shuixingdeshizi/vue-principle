@@ -1,144 +1,118 @@
-const ncname = '[a-zA-Z_][\\w]*'
+import createParseHTML from './create-parse-html'
 
-const qnamcCapture = '(' + ncname + ')'
+function parseHTML (html) {
 
-const startTagOpen = new RegExp('^<' + qnamcCapture)
+  const stack = []
+  let root
+  let currentParent
+  let inVPre = false
+  let inPre = false
+  let warned = false
 
-const startTagClose = new RegExp('^\s*(\/?)>')
+  createParseHTML(html, {
+    start (tag, attrs, unary, start, end) {
 
-const endTag = new RegExp('^<\/' + qnamcCapture + '>')
-
-const singleAttrIdentifier = /([^\s"'<>/=]+)/
-const singleAttrAssign = /(?:=)/
-const singleAttrValues = [
-  /"([^"]*)"+/.source,
-  /'([^']*)'+/.source,
-  /([^\s"'=<>`]+)/.source
-]
-const attribute = new RegExp(
-  '^\\s*' + singleAttrIdentifier.source +
-  '(?:\\s*(' + singleAttrAssign.source + ')' +
-  '\\s*(?:' + singleAttrValues.join('|') + '))?'
-)
+      let element = createASTElement(tag, attrs, currentParent)
 
 
-
-var index = 0
-const stack = []
-var html
-var currentParent
-var root
-
-function parseHTML (template) {
-  html = template
-  while (html) {
-    var textEnd = html.indexOf('<')
-
-    if (textEnd === 0) {
-      // 匹配开始标签
-      if (html.match(startTagOpen)) {
-        const startTagMatch = parseStartTag()
-  
-        if (startTagMatch) {
-          const element = {
-            type: 1,
-            tag: startTagMatch.tagName,
-            lowerCasedtag: startTagMatch.tagName.toLowerCase(),
-            parent: currentParent,
-            children: [],
-            attrsList: startTagMatch.attrs
-          }
-  
-          if (!root) {
-            root = element
-          }
-  
-          if (currentParent) {
-            currentParent.children.push(element)
-          }
-  
-          stack.push(element)
-          currentParent = element
-          continue
-        
-        }
+      if (!element.processed) {
+        processFor(element)
+        processIf(element)
       }
-  
-      // 匹配结束标签
-      const endTagMatch = html.match(endTag)
-      if (endTagMatch) {
-        advance(endTagMatch[0].length)
-        parseEndTag(endTagMatch)
-        continue
+
+      if (!root) {
+        root = element
       }
-    } else {
-      var text = html.substring(0, textEnd)
-      advance(text.length)
-      currentParent.children.push({
-        type: 3,
-        text
-      })
-      continue
+
+      if (!unary) {
+        currentParent = element
+        stack.push(element)
+      }
+    },
+    end (tag, start, end) {
+      // pop stack
+      stack.length -= 1
+      currentParent = stack[stack.length - 1]
     }
-  }
+  })
   return root
 }
 
-
-function advance (n) {
-  index += n
-  html = html.substring(n)
+function createASTElement (tag, attrs, parent) {
+  return {
+    type: 1,
+    tag,
+    attrsList: attrs,
+    attrsMap: makeAttrsMap(attrs),
+    rawAttrsMap: {},
+    parent,
+    children: []
+  }
 }
 
-/**
- * 匹配开始标签
- * @param {*} html 
- */
-function parseStartTag () {
 
-  const start = html.match(startTagOpen)
-
-  if (start) {
-    const match = {
-      tagName: start[1],
-      attrs: [],
-      start: index,
-      end: ''
+function getAndRemoveAttr (el, name, removeFromMap) {
+  let val
+  if ((val = el.attrsMap[name]) != null) {
+    const list = el.attrsList
+    for (let i = 0, l = list.length; i < l; i++) {
+      if (list[i].name === name) {
+        list.splice(i, 1)
+        break
+      }
     }
-    advance(start[0].length)
+  }
+  if (removeFromMap) {
+    delete el.attrsMap[name]
+  }
+  return val
+}
 
-    let end, attr
-    
-    while(!(end = html.match(startTagClose)) && (attr = html.match(attribute))) {
-      advance(attr[0].length)
-      match.attrs.push({
-        name: attr[1],
-        value: attr[3]
-      })
-    }
+function makeAttrsMap (attrs) {
+  const map = {}
+  for (let i = 0, l = attrs.length; i < l; i++) {
+    map[attrs[i].name] = attrs[i].value
+  }
+  return map
+}
 
-    if (end) {
-      advance(end[0].length)
-      match.end = index
-      return match
+function closeElement (element) {
+
+}
+
+
+function processFor (el) {
+  let exp
+  if ((exp = getAndRemoveAttr(el, 'v-for'))) {
+    const res = parseFor(exp)
+    if (res) {
+      extend(el, res)
+    } else if (process.env.NODE_ENV !== 'production') {
+      warn(
+        `Invalid v-for expression: ${exp}`,
+        el.rawAttrsMap['v-for']
+      )
     }
   }
 }
 
-function parseEndTag (tagName) {
-  var pos 
-
-  for (pos = stack.length - 1; pos >=0; pos--) {
-    if (stack[pos].lowerCasedtag === tagName[1].toLowerCase()) {
-      break
+function processIf (el) {
+  const exp = getAndRemoveAttr(el, 'v-if')
+  if (exp) {
+    el.if = exp
+    addIfCondition(el, {
+      exp: exp,
+      block: el
+    })
+  } else {
+    if (getAndRemoveAttr(el, 'v-else') != null) {
+      el.else = true
+    }
+    const elseif = getAndRemoveAttr(el, 'v-else-if')
+    if (elseif) {
+      el.elseif = elseif
     }
   }
-
-  if (pos >= 0) {
-    stack.length = pos
-    currentParent = stack[pos - 1]
-  }
 }
-
 
 export default parseHTML

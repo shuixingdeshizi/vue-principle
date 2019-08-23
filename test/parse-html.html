@@ -9,11 +9,22 @@
 </head>
 <body>
   <div id="app">
-    <div>hello world</div>
+    <div id="box" class="box1">hello world</div>
   </div>
   <script>
     var template = document.querySelector('#app').innerHTML
+
+
+    const stack = []
+    let root
+    let currentParent
+    let inVPre = false
+    let inPre = false
+    let warned = false
+
     var ast = parseHTML(template.trim())
+
+
     console.log(ast)
   </script>
 </body>
