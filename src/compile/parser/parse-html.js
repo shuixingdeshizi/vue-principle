@@ -1,5 +1,7 @@
 import createParseHTML from './create-parse-html'
 
+const defaultTagRE = /\{\{((?:.|\n)+?)\}\}/g;
+
 function parseHTML (html) {
 
   const stack = []
@@ -24,15 +26,44 @@ function parseHTML (html) {
         root = element
       }
 
-      if (!unary) {
+      if (!currentParent) {
         currentParent = element
-        stack.push(element)
+      } else {
+        currentParent.children.push(element)
       }
+      stack.push(element)
     },
     end (tag, start, end) {
       // pop stack
       stack.length -= 1
       currentParent = stack[stack.length - 1]
+    },
+    chars: function chars (text, start, end) {
+      if (!currentParent) {
+        return
+      }
+      var children = currentParent.children;
+
+      if (text) {
+        var res;
+        var child;
+        if (res = parseText(text, delimiters)) {
+          child = {
+            type: 2,
+            expression: res.expression,
+            tokens: res.tokens,
+            text: text
+          };
+        } else {
+          child = {
+            type: 3,
+            text: text
+          };
+        }
+        if (child) {
+          children.push(child);
+        }
+      }
     }
   })
   return root
@@ -112,6 +143,35 @@ function processIf (el) {
     if (elseif) {
       el.elseif = elseif
     }
+  }
+}
+
+function parseText (text) {
+
+  var tokens = [];
+  var rawTokens = [];
+  var lastIndex = defaultTagRE.lastIndex = 0;
+  var match, index, tokenValue;
+  while ((match = defaultTagRE.exec(text))) {
+    index = match.index;
+    // push text token
+    if (index > lastIndex) {
+      rawTokens.push(tokenValue = text.slice(lastIndex, index));
+      tokens.push(JSON.stringify(tokenValue));
+    }
+    // tag token
+    // var exp = parseFilters(match[1].trim());
+    // tokens.push(("_s(" + exp + ")"));
+    // rawTokens.push({ '@binding': exp });
+    lastIndex = index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    rawTokens.push(tokenValue = text.slice(lastIndex));
+    tokens.push(JSON.stringify(tokenValue));
+  }
+  return {
+    expression: tokens.join('+'),
+    tokens: rawTokens
   }
 }
 

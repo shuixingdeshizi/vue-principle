@@ -80,6 +80,10 @@
       if (text) {
         advance(text.length);
       }
+
+      if (options.chars && text) {
+        options.chars(text, index - text.length, index);
+      }
     }
 
     parseEndTag();
@@ -152,6 +156,8 @@
     }
   }
 
+  var defaultTagRE = /\{\{((?:.|\n)+?)\}\}/g;
+
   function parseHTML$1(html) {
     var stack = [];
     var root;
@@ -169,15 +175,47 @@
           root = element;
         }
 
-        if (!unary) {
+        if (!currentParent) {
           currentParent = element;
           stack.push(element);
+        } else {
+          currentParent.children.push(element);
         }
       },
       end: function end(tag, start, _end) {
         // pop stack
         stack.length -= 1;
         currentParent = stack[stack.length - 1];
+      },
+      chars: function chars(text, start, end) {
+        if (!currentParent) {
+          return;
+        }
+
+        var children = currentParent.children;
+
+        if (text) {
+          var res;
+          var child;
+
+          if (res = parseText(text)) {
+            child = {
+              type: 2,
+              expression: res.expression,
+              tokens: res.tokens,
+              text: text
+            };
+          } else {
+            child = {
+              type: 3,
+              text: text
+            };
+          }
+
+          if (child) {
+            children.push(child);
+          }
+        }
       }
     });
     return root;
@@ -260,6 +298,40 @@
         el.elseif = elseif;
       }
     }
+  }
+
+  function parseText(text) {
+    var tokens = [];
+    var rawTokens = [];
+    var lastIndex = defaultTagRE.lastIndex = 0;
+    var match, index, tokenValue;
+
+    while (match = defaultTagRE.exec(text)) {
+      index = match.index; // push text token
+
+      if (index > lastIndex) {
+        rawTokens.push(tokenValue = text.slice(lastIndex, index));
+        tokens.push(JSON.stringify(tokenValue));
+      } // tag token
+
+
+      var exp = parseFilters(match[1].trim());
+      tokens.push("_s(" + exp + ")");
+      rawTokens.push({
+        '@binding': exp
+      });
+      lastIndex = index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+      rawTokens.push(tokenValue = text.slice(lastIndex));
+      tokens.push(JSON.stringify(tokenValue));
+    }
+
+    return {
+      expression: tokens.join('+'),
+      tokens: rawTokens
+    };
   }
 
   return parseHTML$1;

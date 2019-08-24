@@ -237,7 +237,6 @@
       if (el.component) {
         code = genComponent(el.component, el, state);
       } else {
-        debugger;
         var data;
         data = genData(el);
         var children = el.inlineTemplate ? null : genChildren(el);
@@ -359,6 +358,11 @@
     }
   }
 
+  function genText(text) {
+    return "_v(".concat(text.type === 2 ? text.expression // no need for () because already wrapped in _s()
+    : JSON.stringify(text.text), ")");
+  }
+
   function genChildren(el) {
     var children = el.children;
 
@@ -452,9 +456,12 @@
       if (text) {
         advance(text.length);
       }
-    }
 
-    parseEndTag();
+      if (options.chars && text) {
+        options.chars(text, index - text.length, index);
+      }
+    } // parseEndTag()
+
 
     function advance(n) {
       index += n;
@@ -524,6 +531,8 @@
     }
   }
 
+  var defaultTagRE = /\{\{((?:.|\n)+?)\}\}/g;
+
   function parseHTML$1(html) {
     var stack = [];
     var root;
@@ -541,15 +550,48 @@
           root = element;
         }
 
-        if (!unary) {
+        if (!currentParent) {
           currentParent = element;
-          stack.push(element);
+        } else {
+          currentParent.children.push(element);
         }
+
+        stack.push(element);
       },
       end: function end(tag, start, _end) {
         // pop stack
         stack.length -= 1;
         currentParent = stack[stack.length - 1];
+      },
+      chars: function chars(text, start, end) {
+        if (!currentParent) {
+          return;
+        }
+
+        var children = currentParent.children;
+
+        if (text) {
+          var res;
+          var child;
+
+          if (res = parseText(text)) {
+            child = {
+              type: 2,
+              expression: res.expression,
+              tokens: res.tokens,
+              text: text
+            };
+          } else {
+            child = {
+              type: 3,
+              text: text
+            };
+          }
+
+          if (child) {
+            children.push(child);
+          }
+        }
       }
     });
     return root;
@@ -634,6 +676,38 @@
     }
   }
 
+  function parseText(text) {
+    var tokens = [];
+    var rawTokens = [];
+    var lastIndex = defaultTagRE.lastIndex = 0;
+    var match, index, tokenValue;
+
+    while (match = defaultTagRE.exec(text)) {
+      index = match.index; // push text token
+
+      if (index > lastIndex) {
+        rawTokens.push(tokenValue = text.slice(lastIndex, index));
+        tokens.push(JSON.stringify(tokenValue));
+      } // tag token
+      // var exp = parseFilters(match[1].trim());
+      // tokens.push(("_s(" + exp + ")"));
+      // rawTokens.push({ '@binding': exp });
+
+
+      lastIndex = index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+      rawTokens.push(tokenValue = text.slice(lastIndex));
+      tokens.push(JSON.stringify(tokenValue));
+    }
+
+    return {
+      expression: tokens.join('+'),
+      tokens: rawTokens
+    };
+  }
+
   function compile(template) {
     var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
     var ast = parseHTML$1(template.trim());
@@ -663,6 +737,10 @@
     return vnode;
   }
 
+  function createTextVNode(val) {
+    return new VNode(undefined, undefined, undefined, String(val));
+  }
+
   function Vue() {
     var _this = this;
 
@@ -682,13 +760,13 @@
       return createElement(_this, a, b, c);
     };
 
+    this._v = createTextVNode;
+
     this.__patch__ = function (el, vnode) {
-      debugger;
       el = typeof el === 'string' ? el = document.querySelector(el) : el;
       var node = document.createElement(vnode.tag);
       el.innerHTML = '';
       el.appendChild(node);
-      debugger;
     };
 
     if (this.$el) {

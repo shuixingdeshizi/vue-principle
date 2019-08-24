@@ -2,6 +2,7 @@ import observe from './observe'
 import mountComponent from './mountComponent'
 import compile from './compile'
 import createElement from './vdom/create-element'
+import createTextVNode from './vdom/create-text-vnode'
 
 function Vue (options = {}) {
   this.$el = options.el
@@ -16,14 +17,14 @@ function Vue (options = {}) {
   this.$createElement = (a, b, c, d) => createElement(this, a, b, c, d, true)
   this._c = (a, b, c, d) => createElement(this, a, b, c, d, false)
 
+  this._v = createTextVNode;
+
 
   this.__patch__ = function (el, vnode) {
-    debugger
     el = typeof el === 'string' ? el = document.querySelector(el) : el
     var node = document.createElement(vnode.tag)
     el.innerHTML = ''
     el.appendChild(node)
-    debugger
   }
 
   

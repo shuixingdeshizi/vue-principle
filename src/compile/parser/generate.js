@@ -32,7 +32,6 @@ function genElement (el, state) {
     if (el.component) {
       code = genComponent(el.component, el, state)
     } else {
-      debugger
       let data
         data = genData(el, state)
 
@@ -145,6 +144,13 @@ function genNode (el) {
   } else {
     return genText(el); 
   }
+}
+
+function genText (text) {
+  return `_v(${text.type === 2
+    ? text.expression // no need for () because already wrapped in _s()
+    : JSON.stringify(text.text)
+  })`
 }
 
 function genChildren (el) { 

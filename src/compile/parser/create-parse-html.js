@@ -93,9 +93,13 @@ function parseHTML (html, options) {
       advance(text.length)
     }
 
+    if (options.chars && text) {
+      options.chars(text, index - text.length, index)
+    }
+
   }
 
-  parseEndTag()
+  // parseEndTag()
 
   function advance (n) {
     index += n
