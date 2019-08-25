@@ -1,5 +1,5 @@
 import createParseHTML from './create-parse-html'
-import {createASTElement, getAndRemoveAttr, makeAttrsMap} from './utils'
+import {createASTElement, parseText} from './utils'
 
 function parseHTML (html) {
 
@@ -34,10 +34,22 @@ function parseHTML (html) {
         return
       }
 
-      var child = {
-        type: 3,
-        text: text
+      var child
+      var res
+      if (res = parseText(text)) {
+        child = {
+          type: 2,
+          expression: res.expression,
+          tokens: res.tokens,
+          text: text
+        }
+      } else {
+        child = {
+          type: 3,
+          text: text
+        }
       }
+
       
       currentParent.children.push(child);
     }

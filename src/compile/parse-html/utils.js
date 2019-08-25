@@ -40,11 +40,11 @@ export const parseText = (text) => {
 
   var tokens = [];
   var rawTokens = [];
-  var lastIndex = defaultTagRE.lastIndex = 0;
-  var match, index, tokenValue;
+  var match
   while ((match = defaultTagRE.exec(text))) {
     var exp = match[1].trim();
-    tokens.push(("_s(" + exp + ")"));
+    // tokens.push(("_s(" + exp + ")"));
+    tokens.push(exp)
   }
 
   return {

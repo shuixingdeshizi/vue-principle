@@ -9,24 +9,21 @@
 
     function insertedVnodeQueue() {}
 
-    createElm(vnode, insertedVnodeQueue, el); //   el = typeof el === 'string' ? el = document.querySelector(el) : el
-    //   var node = document.createElement(vnode.tag)
-    //   el.innerHTML = ''
-    //   console.log(node)
-    //   el.appendChild(node)
-    // }
-    // if (this.$el) {
-    //   this.$mount(this.$el)
-    // }
-    // var code = "prize"
-    // this.testFn = new Function (`with(this){return ${code}}`)
-    // var demo = this.testFn()
-    // console.log(demo)
+    el.innerHTML = '';
+    createElm(vnode, insertedVnodeQueue, el);
   }
 
   function createElm(vnode, insertedVnodeQueue, parentElm) {
-    vnode.elm = document.createElement(vnode.tagName);
-    createChildren(vnode, children, insertedVnodeQueue);
+    vnode.elm = document.createElement(vnode.tag);
+
+    if (vnode.data) {
+      Object.keys(vnode.data).forEach(function (key) {
+        var prop = key === 'class' ? 'className' : key;
+        vnode.elm[prop] = vnode.data[key];
+      });
+    }
+
+    createChildren(vnode, vnode.children, insertedVnodeQueue);
     insert(parentElm, vnode.elm);
   }
 
@@ -35,6 +32,8 @@
       for (var i = 0; i < children.length; ++i) {
         createElm(children[i], insertedVnodeQueue, vnode.elm);
       }
+    } else {
+      insert(vnode.elm, document.createTextNode(String(children.text)));
     }
   }
 

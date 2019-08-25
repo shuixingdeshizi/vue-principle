@@ -43,15 +43,15 @@
     var children = el.children;
 
     if (children && children.length > 0) {
-      return "".concat(children.map(genNode).join(','));
+      return children.map(genNode);
     }
   }
 
   function genElement(el, state) {
     var code;
     var data = genData(el) || '';
-    var children = genChildren(el) || '';
-    code = "_c('".concat(el.tag, "', ").concat(data, ", '").concat(children, "')");
+    var children = genChildren(el) || [];
+    code = "_c('".concat(el.tag, "', ").concat(data, ", ").concat(children, ")");
     return code;
   }
 

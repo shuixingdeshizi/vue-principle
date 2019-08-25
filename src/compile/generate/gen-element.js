@@ -1,13 +1,12 @@
 
-import genData from './gen-data'
 import genChildren from './gen-children'
-function genElement (el, state) {
+function genElement (el) {
   let code
-  let data = genData(el) || ''
+  let attrs = JSON.stringify(el.attrsMap || {})
 
   const children = genChildren(el) || []
   
-  code = `_c('${el.tag}', ${data}, ${children})`
+  code = `_c('${el.tag}', ${attrs}, ${children})`
 
   return code
 }

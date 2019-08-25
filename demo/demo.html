@@ -7,6 +7,9 @@
     <title>parse-html</title>
     <script src="../dist/vue.js"></script>
     <style>
+        .box1 {
+            color: red;
+        }
     </style>
 </head>
 <body>  
@@ -23,6 +26,10 @@
         })
         vm._data.prize = 20
         console.log(vm.prize)
+
+        setTimeout(() => {
+            vm.prize = 30
+        },  5000)
     </script>
 </body>
 </html>

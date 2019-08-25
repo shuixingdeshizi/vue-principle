@@ -186,7 +186,7 @@
   var VNode =
   /*#__PURE__*/
   function () {
-    function VNode(tag, data, children, text, elm, context, componentOptions, asyncFactory) {
+    function VNode(tag, data, children, text, elm, context) {
       _classCallCheck(this, VNode);
 
       this.tag = tag;
@@ -196,22 +196,7 @@
       this.elm = elm;
       this.ns = undefined;
       this.context = context;
-      this.fnContext = undefined;
-      this.fnOptions = undefined;
-      this.fnScopeId = undefined;
-      this.key = data && data.key;
-      this.componentOptions = componentOptions;
-      this.componentInstance = undefined;
       this.parent = undefined;
-      this.raw = false;
-      this.isStatic = false;
-      this.isRootInsert = true;
-      this.isComment = false;
-      this.isCloned = false;
-      this.isOnce = false;
-      this.asyncFactory = asyncFactory;
-      this.asyncMeta = undefined;
-      this.isAsyncPlaceholder = false;
     } // DEPRECATED: alias for componentInstance for backwards compat.
 
     /* istanbul ignore next */
@@ -252,28 +237,6 @@
     return vm;
   }
 
-  function genData(el) {
-    var data = '{';
-
-    if (el.attrs) {
-      data += "attrsMap:".concat(genProps(el.attrsMap), ",");
-    } // event handlers
-
-
-    if (el.events) {
-      data += "".concat(genHandlers(el.events, false), ",");
-    } // component v-model
-
-
-    if (el.model) {
-      data += "model:{value:".concat(el.model.value, ",callback:").concat(el.model.callback, ",expression:").concat(el.model.expression, "},");
-    }
-
-    data = data.replace(/,$/, '');
-    data += '}';
-    return data;
-  }
-
   function genText(text) {
     return "_v(".concat(text.type === 2 ? text.expression // no need for () because already wrapped in _s()
     : JSON.stringify(text.text), ")");
@@ -291,15 +254,15 @@
     var children = el.children;
 
     if (children && children.length > 0) {
-      return "".concat(children.map(genNode).join(','));
+      return children.map(genNode);
     }
   }
 
-  function genElement(el, state) {
+  function genElement(el) {
     var code;
-    var data = genData(el) || '';
+    var attrs = JSON.stringify(el.attrsMap || {});
     var children = genChildren(el) || [];
-    code = "_c('".concat(el.tag, "', ").concat(data, ", ").concat(children, ")");
+    code = "_c('".concat(el.tag, "', ").concat(attrs, ", ").concat(children, ")");
     return code;
   }
 
@@ -475,6 +438,23 @@
 
     return map;
   };
+  var parseText = function parseText(text) {
+    var defaultTagRE = /\{\{((?:.|\n)+?)\}\}/g;
+    var tokens = [];
+    var rawTokens = [];
+    var match;
+
+    while (match = defaultTagRE.exec(text)) {
+      var exp = match[1].trim(); // tokens.push(("_s(" + exp + ")"));
+
+      tokens.push(exp);
+    }
+
+    return {
+      expression: tokens.join('+'),
+      tokens: rawTokens
+    };
+  };
 
   function parseHTML$1(html) {
     var stack = [];
@@ -506,10 +486,23 @@
           return;
         }
 
-        var child = {
-          type: 3,
-          text: text
-        };
+        var child;
+        var res;
+
+        if (res = parseText(text)) {
+          child = {
+            type: 2,
+            expression: res.expression,
+            tokens: res.tokens,
+            text: text
+          };
+        } else {
+          child = {
+            type: 3,
+            text: text
+          };
+        }
+
         currentParent.children.push(child);
       }
     });
@@ -547,23 +540,20 @@
 
     function insertedVnodeQueue() {}
 
-    createElm(vnode, insertedVnodeQueue, el); //   el = typeof el === 'string' ? el = document.querySelector(el) : el
-    //   var node = document.createElement(vnode.tag)
-    //   el.innerHTML = ''
-    //   console.log(node)
-    //   el.appendChild(node)
-    // }
-    // if (this.$el) {
-    //   this.$mount(this.$el)
-    // }
-    // var code = "prize"
-    // this.testFn = new Function (`with(this){return ${code}}`)
-    // var demo = this.testFn()
-    // console.log(demo)
+    el.innerHTML = '';
+    createElm(vnode, insertedVnodeQueue, el);
   }
 
   function createElm(vnode, insertedVnodeQueue, parentElm) {
     vnode.elm = document.createElement(vnode.tag);
+
+    if (vnode.data) {
+      Object.keys(vnode.data).forEach(function (key) {
+        var prop = key === 'class' ? 'className' : key;
+        vnode.elm[prop] = vnode.data[key];
+      });
+    }
+
     createChildren(vnode, vnode.children, insertedVnodeQueue);
     insert(parentElm, vnode.elm);
   }
@@ -573,6 +563,8 @@
       for (var i = 0; i < children.length; ++i) {
         createElm(children[i], insertedVnodeQueue, vnode.elm);
       }
+    } else {
+      insert(vnode.elm, document.createTextNode(String(children.text)));
     }
   }
 
