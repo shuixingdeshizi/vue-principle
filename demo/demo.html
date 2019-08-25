@@ -11,16 +11,18 @@
 </head>
 <body>  
     <div id="app">
-        <div class="box1" :class="box">{{prize}}</div>
+        
     </div>
     <script>
         var vm = new Vue({
             el: '#app',
             data: {
                 prize: 10
-            }
+            },
+            template: '<div class="box1" :class="box">{{prize}}</div>'
         })
         vm._data.prize = 20
+        console.log(vm.prize)
     </script>
 </body>
 </html>

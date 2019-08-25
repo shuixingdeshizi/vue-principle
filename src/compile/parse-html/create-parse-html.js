@@ -11,23 +11,6 @@ const startTagOpen = new RegExp(`^<${qnameCapture}`)
 const startTagClose = /^\s*(\/?)>/
 const endTag = new RegExp(`^<\\/${qnameCapture}[^>]*>`)
 
-const decodingMap = {
-  '&lt;': '<',
-  '&gt;': '>',
-  '&quot;': '"',
-  '&amp;': '&',
-  '&#10;': '\n',
-  '&#9;': '\t',
-  '&#39;': "'"
-}
-const encodedAttr = /&(?:lt|gt|quot|amp|#39);/g
-const encodedAttrWithNewLines = /&(?:lt|gt|quot|amp|#39|#10|#9);/g
-
-
-function decodeAttr (value, shouldDecodeNewlines) {
-  const re = shouldDecodeNewlines ? encodedAttrWithNewLines : encodedAttr
-  return value.replace(re, match => decodingMap[match])
-}
 
 function parseHTML (html, options) {
   const stack = []
@@ -37,25 +20,89 @@ function parseHTML (html, options) {
     let textEnd = html.indexOf('<')
     if (textEnd === 0) {
 
+
+
+      function parseEndTag (tagName, start, end) {
+        let pos, lowerCasedTagName
+        if (start == null) start = index
+        if (end == null) end = index
+    
+        // Find the closest opened tag of the same type
+        if (tagName) {
+          lowerCasedTagName = tagName.toLowerCase()
+          for (pos = stack.length - 1; pos >= 0; pos--) {
+            if (stack[pos].lowerCasedTag === lowerCasedTagName) {
+              break
+            }
+          }
+        } else {
+          // If no tag name is provided, clean shop
+          pos = 0
+        }
+    
+        if (pos >= 0) {
+          // Close all the open elements, up the stack
+          for (let i = stack.length - 1; i >= pos; i--) {
+            // TODO:
+            if (options.end) {
+              options.end(stack[i].tag, start, end)
+            }
+          }
+    
+          // Remove the open elements from the stack
+          stack.length = pos
+        }
+      }
+
+
       // End tag:
       const endTagMatch = html.match(endTag)
       if (endTagMatch) {
-        const curIndex = index
+        const tagName = endTagMatch[1]
+        const start = index
         advance(endTagMatch[0].length)
-        parseEndTag(endTagMatch[1], curIndex, index)
+        const end = index
+
+        let pos
+        // Find the closest opened tag of the same type
+        if (tagName) {
+          for (pos = stack.length - 1; pos >= 0; pos--) {
+            if (stack[pos].lowerCasedTag === tagName.toLowerCase()) {
+              break
+            }
+          }
+        } else {
+          // If no tag name is provided, clean shop
+          pos = 0
+        }
+    
+        if (pos >= 0) {
+          // Close all the open elements, up the stack
+          for (let i = stack.length - 1; i >= pos; i--) {
+
+            // TODO:
+            if (options.end) {
+              options.end(stack[i].tag, start, end)
+            }
+          }
+    
+          // Remove the open elements from the stack
+          stack.length = pos
+        }
+
         continue
+
       }
 
       // Start tag:
       const startTagMatch = parseStartTag()
       if (startTagMatch) {
-
         const tagName = startTagMatch.tagName
         const unary = startTagMatch.unarySlash
     
-    
         const l = startTagMatch.attrs.length
         const attrs = new Array(l)
+
         for (let i = 0; i < l; i++) {
           const args = startTagMatch.attrs[i]
           const value = args[3] || args[4] || args[5] || ''
@@ -66,7 +113,13 @@ function parseHTML (html, options) {
         }
     
         if (!unary) {
-          stack.push({ tag: tagName, lowerCasedTag: tagName.toLowerCase(), attrs: attrs, start: startTagMatch.start, end: startTagMatch.end })
+          stack.push({ 
+            tag: tagName, 
+            lowerCasedTag: tagName.toLowerCase(), 
+            attrs: attrs, 
+            start: startTagMatch.start, 
+            end: startTagMatch.end 
+          })
         }
 
 
@@ -117,10 +170,7 @@ function parseHTML (html, options) {
       advance(start[0].length)
       let end, attr
 
-      console.log(html.match(dynamicArgAttribute))
-      console.log(html.match(attribute))
-
-      while (!(end = html.match(startTagClose)) && (attr = html.match(dynamicArgAttribute) || html.match(attribute))) {
+      while (!(end = html.match(startTagClose)) && (attr = html.match(attribute))) {
         attr.start = index
         advance(attr[0].length)
         attr.end = index
@@ -132,38 +182,6 @@ function parseHTML (html, options) {
         match.end = index
         return match
       }
-    }
-  }
-
-  function parseEndTag (tagName, start, end) {
-    let pos, lowerCasedTagName
-    if (start == null) start = index
-    if (end == null) end = index
-
-    // Find the closest opened tag of the same type
-    if (tagName) {
-      lowerCasedTagName = tagName.toLowerCase()
-      for (pos = stack.length - 1; pos >= 0; pos--) {
-        if (stack[pos].lowerCasedTag === lowerCasedTagName) {
-          break
-        }
-      }
-    } else {
-      // If no tag name is provided, clean shop
-      pos = 0
-    }
-
-    if (pos >= 0) {
-      // Close all the open elements, up the stack
-      for (let i = stack.length - 1; i >= pos; i--) {
-        // TODO:
-        if (options.end) {
-          options.end(stack[i].tag, start, end)
-        }
-      }
-
-      // Remove the open elements from the stack
-      stack.length = pos
     }
   }
 }

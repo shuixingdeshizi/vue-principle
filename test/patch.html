@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>generate</title>
+  <script src="../dist/parse-html.js"></script>
+  <script src="../dist/generate.js"></script>
+  <script src="../dist/patch.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div id="box1" class="box">hello world</div>
+  </div>
+
+  <script>
+    var $app = document.querySelector('#app')
+    var template = $app.innerHTML
+    var ast = parseHTML(template)
+    console.log(ast)
+
+    const compile = generate(ast)
+    vnode = compile.render()
+    console.log(vnode)
+    patch($app, vnode)
+  </script>
+  
+</body>
+</html>

@@ -3,6 +3,8 @@ import mountComponent from './mountComponent'
 import compile from './compile'
 import createElement from './vdom/create-element'
 import createTextVNode from './vdom/create-text-vnode'
+import patch from './compile/patch/index'
+import { toString } from './utils/index'
 
 function Vue (options = {}) {
   this.$el = options.el
@@ -14,23 +16,31 @@ function Vue (options = {}) {
   this._data = options.data
   observe(this._data)
 
+  Object.keys(this._data).forEach(key => {
+    let that = this
+    Object.defineProperty(this, key, {
+      configurable: true,
+      enumerable: true,
+      set: function proxySetter (newVal) {
+        this._data[key] = newVal
+      },
+      get: function proxyGetter () {
+        return this._data[key]
+      }
+    })
+  })
+
+
   this.$createElement = (a, b, c, d) => createElement(this, a, b, c, d, true)
   this._c = (a, b, c, d) => createElement(this, a, b, c, d, false)
 
   this._v = createTextVNode;
+  this._s = toString
 
 
-  this.__patch__ = function (el, vnode) {
-    el = typeof el === 'string' ? el = document.querySelector(el) : el
-    var node = document.createElement(vnode.tag)
-    el.innerHTML = ''
-    el.appendChild(node)
-  }
+  this.__patch__ = patch
 
-  
-  if (this.$el) {
-    this.$mount(this.$el)
-  }
+  this.$mount(this.$options.el)
 }
 
 Vue.prototype.$mount = function (el, hydrating) {
@@ -99,21 +109,11 @@ Vue.prototype._render = function () {
 }
 
 Vue.prototype._update = function (vnode) {
-
   // vnode渲染
-
   var vm = this;
-  var prevVnode = vm._vnode;
   vm._vnode = vnode;
-  // Vue.prototype.__patch__ is injected in entry points
-  // based on the rendering backend used.
-  if (!prevVnode) {
-    // initial render
-    vm.$el = vm.__patch__(vm.$el, vnode);
-  } else {
-    // updates
-    vm.$el = vm.__patch__(prevVnode, vnode);
-  }
+  vm.__patch__(vm.$el, vnode);
 }
+
 
 export default Vue

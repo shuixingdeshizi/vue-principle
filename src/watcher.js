@@ -1,3 +1,4 @@
+import { queueWatcher } from './nextTick'
 import {pushTarget, popTarget} from './dep'
 
 let uid = 0

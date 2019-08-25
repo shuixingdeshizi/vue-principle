@@ -1,8 +1,3 @@
-/*!
- * Vue.js v1.0.0
- * (c) 2014-2019 Evan You
- * Released under the MIT License.
- */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('shared/util'), require('web/compiler/util'), require('core/util/lang')) :
   typeof define === 'function' && define.amd ? define(['shared/util', 'web/compiler/util', 'core/util/lang'], factory) :
@@ -58,6 +53,59 @@
         }
       }
     });
+  }
+
+  var callbacks = [];
+  var pending = false;
+
+  function nextTick(cb) {
+    callbacks.push(cb);
+
+    if (!pending) {
+      pending = true;
+      setTimeout(flushCallbacks, 0);
+    }
+  }
+
+  function flushCallbacks() {
+    pending = false;
+    var copies = callbacks.slice(0);
+    callbacks.length = 0;
+
+    for (var i = 0; i < copies.length; i++) {
+      copies[i]();
+    }
+  }
+
+  var has = {};
+  var queue = [];
+  var waiting = false;
+
+  function flushSchedulerQueue() {
+    var watcher, id;
+
+    for (var i = 0; i < queue.length; i++) {
+      watcher = queue[i];
+      id = watcher.id;
+      has[id] = null;
+      watcher.run();
+    }
+
+    waiting = false;
+  }
+
+  function queueWatcher(watcher) {
+    var id = watcher.id;
+
+    if (has[id] == null) {
+      has[id] = true;
+      queue.push(watcher);
+
+      if (!waiting) {
+        waiting = true;
+        nextTick(flushSchedulerQueue);
+      }
+    }
   }
 
   var uid = 0;
@@ -204,150 +252,31 @@
     return vm;
   }
 
-  function generate(rootAst, options) {
-    var state = new CodegenState(options);
-    var code = rootAst ? genElement(rootAst, state) : '_c("div")';
-    console.log(code);
-    return {
-      render: new Function("with(this){return ".concat(code, "}"))
-    };
-  }
-
-  function genElement(el, state) {
-    if (el.parent) {
-      el.pre = el.pre || el.parent.pre;
-    }
-
-    if (el.staticRoot && !el.staticProcessed) {
-      return genStatic(el, state);
-    } else if (el.once && !el.onceProcessed) {
-      return genOnce(el, state);
-    } else if (el["for"] && !el.forProcessed) {
-      return genFor(el, state);
-    } else if (el["if"] && !el.ifProcessed) {
-      return genIf(el, state);
-    } else if (el.tag === 'template' && !el.slotTarget && !state.pre) {
-      return genChildren(el) || 'void 0';
-    } else if (el.tag === 'slot') {
-      return genSlot(el, state);
-    } else {
-      // component or element
-      var code;
-
-      if (el.component) {
-        code = genComponent(el.component, el, state);
-      } else {
-        var data;
-        data = genData(el);
-        var children = el.inlineTemplate ? null : genChildren(el);
-        code = "_c('".concat(el.tag, "'").concat(data ? ",".concat(data) : '' // data
-        ).concat(children ? ",".concat(children) : '' // children
-        , ")");
-      } // module transforms
-      // for (let i = 0; i < state.transforms.length; i++) {
-      //   code = state.transforms[i](el, code)
-      // }
-
-
-      return code;
-    }
-  }
-
   function genData(el) {
-    var data = '{'; // const dirs = genDirectives(el, state)
-    // if (dirs) data += dirs + ','
-    // key
-
-    if (el.key) {
-      data += "key:".concat(el.key, ",");
-    } // ref
-
-
-    if (el.ref) {
-      data += "ref:".concat(el.ref, ",");
-    }
-
-    if (el.refInFor) {
-      data += "refInFor:true,";
-    } // pre
-
-
-    if (el.pre) {
-      data += "pre:true,";
-    } // record original tag name for components using "is" attribute
-
-
-    if (el.component) {
-      data += "tag:\"".concat(el.tag, "\",");
-    } // // module data generation functions
-    // for (let i = 0; i < state.dataGenFns.length; i++) {
-    //   data += state.dataGenFns[i](el)
-    // }
-    // attributes
-
+    var data = '{';
 
     if (el.attrs) {
-      data += "attrs:".concat(genProps(el.attrs), ",");
-    } // DOM props
-
-
-    if (el.props) {
-      data += "domProps:".concat(genProps(el.props), ",");
+      data += "attrsMap:".concat(genProps(el.attrsMap), ",");
     } // event handlers
 
 
     if (el.events) {
       data += "".concat(genHandlers(el.events, false), ",");
-    }
-
-    if (el.nativeEvents) {
-      data += "".concat(genHandlers(el.nativeEvents, true), ",");
-    } // slot target
-    // only for non-scoped slots
-
-
-    if (el.slotTarget && !el.slotScope) {
-      data += "slot:".concat(el.slotTarget, ",");
-    } // scoped slots
-
-
-    if (el.scopedSlots) {
-      data += "".concat(genScopedSlots(el, el.scopedSlots, state), ",");
     } // component v-model
 
 
     if (el.model) {
       data += "model:{value:".concat(el.model.value, ",callback:").concat(el.model.callback, ",expression:").concat(el.model.expression, "},");
-    } // inline-template
-
-
-    if (el.inlineTemplate) {
-      var inlineTemplate = genInlineTemplate(el, state);
-
-      if (inlineTemplate) {
-        data += "".concat(inlineTemplate, ",");
-      }
     }
 
-    data = data.replace(/,$/, '') + '}'; // v-bind dynamic argument wrap
-    // v-bind with dynamic arguments must be applied using the same v-bind object
-    // merge helper so that class/style/mustUseProp attrs are handled correctly.
-
-    if (el.dynamicAttrs) {
-      data = "_b(".concat(data, ",\"").concat(el.tag, "\",").concat(genProps(el.dynamicAttrs), ")");
-    } // v-bind data wrap
-
-
-    if (el.wrapData) {
-      data = el.wrapData(data);
-    } // v-on data wrap
-
-
-    if (el.wrapListeners) {
-      data = el.wrapListeners(data);
-    }
-
+    data = data.replace(/,$/, '');
+    data += '}';
     return data;
+  }
+
+  function genText(text) {
+    return "_v(".concat(text.type === 2 ? text.expression // no need for () because already wrapped in _s()
+    : JSON.stringify(text.text), ")");
   }
 
   function genNode(el) {
@@ -358,11 +287,6 @@
     }
   }
 
-  function genText(text) {
-    return "_v(".concat(text.type === 2 ? text.expression // no need for () because already wrapped in _s()
-    : JSON.stringify(text.text), ")");
-  }
-
   function genChildren(el) {
     var children = el.children;
 
@@ -371,17 +295,23 @@
     }
   }
 
-  var CodegenState = function CodegenState(options) {
-    _classCallCheck(this, CodegenState);
+  function genElement(el, state) {
+    var code;
+    var data = genData(el) || '';
+    var children = genChildren(el) || [];
+    code = "_c('".concat(el.tag, "', ").concat(data, ", ").concat(children, ")");
+    return code;
+  }
 
-    this.options = options;
-    this.onceId = 0;
-    this.staticRenderFns = [];
-    this.pre = false;
-  };
+  function generate(rootAst, options) {
+    var code = rootAst ? genElement(rootAst) : '_c("div")';
+    console.log(code);
+    return {
+      render: new Function("with(this){return ".concat(code, "}"))
+    };
+  }
 
   var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/;
-  var dynamicArgAttribute = /^\s*((?:v-[\w-]+:|@|:|#)\[[^=]+\][^\s"'<>\/=]*)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/;
   var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*";
   var qnameCapture = "((?:".concat(ncname, "\\:)?").concat(ncname, ")");
   var startTagOpen = new RegExp("^<".concat(qnameCapture));
@@ -396,13 +326,41 @@
       var textEnd = html.indexOf('<');
 
       if (textEnd === 0) {
-        // End tag:
+
+
         var endTagMatch = html.match(endTag);
 
         if (endTagMatch) {
-          var curIndex = index;
+          var tagName = endTagMatch[1];
+          var start = index;
           advance(endTagMatch[0].length);
-          parseEndTag(endTagMatch[1], curIndex, index);
+          var end = index;
+          var pos = void 0; // Find the closest opened tag of the same type
+
+          if (tagName) {
+            for (pos = stack.length - 1; pos >= 0; pos--) {
+              if (stack[pos].lowerCasedTag === tagName.toLowerCase()) {
+                break;
+              }
+            }
+          } else {
+            // If no tag name is provided, clean shop
+            pos = 0;
+          }
+
+          if (pos >= 0) {
+            // Close all the open elements, up the stack
+            for (var i = stack.length - 1; i >= pos; i--) {
+              // TODO:
+              if (options.end) {
+                options.end(stack[i].tag, start, end);
+              }
+            } // Remove the open elements from the stack
+
+
+            stack.length = pos;
+          }
+
           continue;
         } // Start tag:
 
@@ -410,15 +368,15 @@
         var startTagMatch = parseStartTag();
 
         if (startTagMatch) {
-          var tagName = startTagMatch.tagName;
+          var _tagName = startTagMatch.tagName;
           var unary = startTagMatch.unarySlash;
           var l = startTagMatch.attrs.length;
           var attrs = new Array(l);
 
-          for (var i = 0; i < l; i++) {
-            var args = startTagMatch.attrs[i];
+          for (var _i = 0; _i < l; _i++) {
+            var args = startTagMatch.attrs[_i];
             var value = args[3] || args[4] || args[5] || '';
-            attrs[i] = {
+            attrs[_i] = {
               name: args[1],
               value: value
             };
@@ -426,8 +384,8 @@
 
           if (!unary) {
             stack.push({
-              tag: tagName,
-              lowerCasedTag: tagName.toLowerCase(),
+              tag: _tagName,
+              lowerCasedTag: _tagName.toLowerCase(),
               attrs: attrs,
               start: startTagMatch.start,
               end: startTagMatch.end
@@ -436,7 +394,7 @@
 
 
           if (options.start) {
-            options.start(tagName, attrs, unary, startTagMatch.start, startTagMatch.end);
+            options.start(_tagName, attrs, unary, startTagMatch.start, startTagMatch.end);
           }
 
           continue;
@@ -478,60 +436,45 @@
           start: index
         };
         advance(start[0].length);
-        var end, attr;
-        console.log(html.match(dynamicArgAttribute));
-        console.log(html.match(attribute));
 
-        while (!(end = html.match(startTagClose)) && (attr = html.match(dynamicArgAttribute) || html.match(attribute))) {
+        var _end, attr;
+
+        while (!(_end = html.match(startTagClose)) && (attr = html.match(attribute))) {
           attr.start = index;
           advance(attr[0].length);
           attr.end = index;
           match.attrs.push(attr);
         }
 
-        if (end) {
-          match.unarySlash = end[1];
-          advance(end[0].length);
+        if (_end) {
+          match.unarySlash = _end[1];
+          advance(_end[0].length);
           match.end = index;
           return match;
         }
       }
     }
-
-    function parseEndTag(tagName, start, end) {
-      var pos, lowerCasedTagName;
-      if (start == null) start = index;
-      if (end == null) end = index; // Find the closest opened tag of the same type
-
-      if (tagName) {
-        lowerCasedTagName = tagName.toLowerCase();
-
-        for (pos = stack.length - 1; pos >= 0; pos--) {
-          if (stack[pos].lowerCasedTag === lowerCasedTagName) {
-            break;
-          }
-        }
-      } else {
-        // If no tag name is provided, clean shop
-        pos = 0;
-      }
-
-      if (pos >= 0) {
-        // Close all the open elements, up the stack
-        for (var _i = stack.length - 1; _i >= pos; _i--) {
-          // TODO:
-          if (options.end) {
-            options.end(stack[_i].tag, start, end);
-          }
-        } // Remove the open elements from the stack
-
-
-        stack.length = pos;
-      }
-    }
   }
 
-  var defaultTagRE = /\{\{((?:.|\n)+?)\}\}/g;
+  var createASTElement = function createASTElement(tag, attrs, parent) {
+    return {
+      type: 1,
+      tag: tag,
+      attrsList: attrs,
+      attrsMap: makeAttrsMap(attrs),
+      parent: parent,
+      children: []
+    };
+  };
+  var makeAttrsMap = function makeAttrsMap(attrs) {
+    var map = {};
+
+    for (var i = 0, l = attrs.length; i < l; i++) {
+      map[attrs[i].name] = attrs[i].value;
+    }
+
+    return map;
+  };
 
   function parseHTML$1(html) {
     var stack = [];
@@ -540,11 +483,6 @@
     parseHTML(html, {
       start: function start(tag, attrs, unary, _start, end) {
         var element = createASTElement(tag, attrs, currentParent);
-
-        if (!element.processed) {
-          processFor(element);
-          processIf(element);
-        }
 
         if (!root) {
           root = element;
@@ -564,154 +502,24 @@
         currentParent = stack[stack.length - 1];
       },
       chars: function chars(text, start, end) {
-        if (!currentParent) {
+        if (!currentParent || !text) {
           return;
         }
 
-        var children = currentParent.children;
-
-        if (text) {
-          var res;
-          var child;
-
-          if (res = parseText(text)) {
-            child = {
-              type: 2,
-              expression: res.expression,
-              tokens: res.tokens,
-              text: text
-            };
-          } else {
-            child = {
-              type: 3,
-              text: text
-            };
-          }
-
-          if (child) {
-            children.push(child);
-          }
-        }
+        var child = {
+          type: 3,
+          text: text
+        };
+        currentParent.children.push(child);
       }
     });
     return root;
   }
 
-  function createASTElement(tag, attrs, parent) {
-    return {
-      type: 1,
-      tag: tag,
-      attrsList: attrs,
-      attrsMap: makeAttrsMap(attrs),
-      rawAttrsMap: {},
-      parent: parent,
-      children: []
-    };
-  }
-
-  function getAndRemoveAttr(el, name, removeFromMap) {
-    var val;
-
-    if ((val = el.attrsMap[name]) != null) {
-      var list = el.attrsList;
-
-      for (var i = 0, l = list.length; i < l; i++) {
-        if (list[i].name === name) {
-          list.splice(i, 1);
-          break;
-        }
-      }
-    }
-
-    if (removeFromMap) {
-      delete el.attrsMap[name];
-    }
-
-    return val;
-  }
-
-  function makeAttrsMap(attrs) {
-    var map = {};
-
-    for (var i = 0, l = attrs.length; i < l; i++) {
-      map[attrs[i].name] = attrs[i].value;
-    }
-
-    return map;
-  }
-
-  function processFor(el) {
-    var exp;
-
-    if (exp = getAndRemoveAttr(el, 'v-for')) {
-      var res = parseFor(exp);
-
-      if (res) {
-        extend(el, res);
-      } else if (process.env.NODE_ENV !== 'production') {
-        warn("Invalid v-for expression: ".concat(exp), el.rawAttrsMap['v-for']);
-      }
-    }
-  }
-
-  function processIf(el) {
-    var exp = getAndRemoveAttr(el, 'v-if');
-
-    if (exp) {
-      el["if"] = exp;
-      addIfCondition(el, {
-        exp: exp,
-        block: el
-      });
-    } else {
-      if (getAndRemoveAttr(el, 'v-else') != null) {
-        el["else"] = true;
-      }
-
-      var elseif = getAndRemoveAttr(el, 'v-else-if');
-
-      if (elseif) {
-        el.elseif = elseif;
-      }
-    }
-  }
-
-  function parseText(text) {
-    var tokens = [];
-    var rawTokens = [];
-    var lastIndex = defaultTagRE.lastIndex = 0;
-    var match, index, tokenValue;
-
-    while (match = defaultTagRE.exec(text)) {
-      index = match.index; // push text token
-
-      if (index > lastIndex) {
-        rawTokens.push(tokenValue = text.slice(lastIndex, index));
-        tokens.push(JSON.stringify(tokenValue));
-      } // tag token
-      // var exp = parseFilters(match[1].trim());
-      // tokens.push(("_s(" + exp + ")"));
-      // rawTokens.push({ '@binding': exp });
-
-
-      lastIndex = index + match[0].length;
-    }
-
-    if (lastIndex < text.length) {
-      rawTokens.push(tokenValue = text.slice(lastIndex));
-      tokens.push(JSON.stringify(tokenValue));
-    }
-
-    return {
-      expression: tokens.join('+'),
-      tokens: rawTokens
-    };
-  }
-
   function compile(template) {
-    var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
     var ast = parseHTML$1(template.trim());
-    var code = generate(ast, options);
+    console.log('ast', ast);
+    var code = generate(ast);
     return {
       ast: ast,
       render: code.render
@@ -726,20 +534,68 @@
   }
 
   function _createElement(context, tag, data, children) {
-    var vnode;
-
-    if (typeof tag === 'string') {
-      vnode = new VNode(tag, data, children, undefined, undefined, context);
-    } else {
-      vnode = createComponent(tag, data, context, children);
-    }
-
+    var vnode = new VNode(tag, data, children, undefined, undefined, context);
     return vnode;
   }
 
   function createTextVNode(val) {
     return new VNode(undefined, undefined, undefined, String(val));
   }
+
+  function patch(el, vnode) {
+    el = typeof el === 'string' ? document.querySelector(el) : el; // TODO:
+
+    function insertedVnodeQueue() {}
+
+    createElm(vnode, insertedVnodeQueue, el); //   el = typeof el === 'string' ? el = document.querySelector(el) : el
+    //   var node = document.createElement(vnode.tag)
+    //   el.innerHTML = ''
+    //   console.log(node)
+    //   el.appendChild(node)
+    // }
+    // if (this.$el) {
+    //   this.$mount(this.$el)
+    // }
+    // var code = "prize"
+    // this.testFn = new Function (`with(this){return ${code}}`)
+    // var demo = this.testFn()
+    // console.log(demo)
+  }
+
+  function createElm(vnode, insertedVnodeQueue, parentElm) {
+    vnode.elm = document.createElement(vnode.tag);
+    createChildren(vnode, vnode.children, insertedVnodeQueue);
+    insert(parentElm, vnode.elm);
+  }
+
+  function createChildren(vnode, children, insertedVnodeQueue) {
+    if (Array.isArray(children)) {
+      for (var i = 0; i < children.length; ++i) {
+        createElm(children[i], insertedVnodeQueue, vnode.elm);
+      }
+    }
+  }
+
+  function insert(parent, elm) {
+    parent.appendChild(elm);
+  }
+
+  var makeMap = function makeMap(str, expectsLowerCase) {
+    var map = Object.create(null);
+    var list = str.split(',');
+
+    for (var i = 0; i < list.length; i++) {
+      map[list[i]] = true;
+    }
+
+    return expectsLowerCase ? function (val) {
+      return map[val.toLowerCase()];
+    } : function (val) {
+      return map[val];
+    };
+  };
+  var isBuiltInTag = makeMap('slot,component', true);
+  var toString = Object.prototype.toString;
 
   function Vue() {
     var _this = this;
@@ -751,6 +607,18 @@
     this._watcher = null;
     this._data = options.data;
     observe(this._data);
+    Object.keys(this._data).forEach(function (key) {
+      Object.defineProperty(_this, key, {
+        configurable: true,
+        enumerable: true,
+        set: function proxySetter(newVal) {
+          this._data[key] = newVal;
+        },
+        get: function proxyGetter() {
+          return this._data[key];
+        }
+      });
+    });
 
     this.$createElement = function (a, b, c, d) {
       return createElement(_this, a, b, c);
@@ -761,17 +629,9 @@
     };
 
     this._v = createTextVNode;
-
-    this.__patch__ = function (el, vnode) {
-      el = typeof el === 'string' ? el = document.querySelector(el) : el;
-      var node = document.createElement(vnode.tag);
-      el.innerHTML = '';
-      el.appendChild(node);
-    };
-
-    if (this.$el) {
-      this.$mount(this.$el);
-    }
+    this._s = toString;
+    this.__patch__ = patch;
+    this.$mount(this.$options.el);
   }
 
   Vue.prototype.$mount = function (el, hydrating) {
@@ -840,17 +700,9 @@
   Vue.prototype._update = function (vnode) {
     // vnode渲染
     var vm = this;
-    var prevVnode = vm._vnode;
-    vm._vnode = vnode; // Vue.prototype.__patch__ is injected in entry points
-    // based on the rendering backend used.
+    vm._vnode = vnode;
 
-    if (!prevVnode) {
-      // initial render
-      vm.$el = vm.__patch__(vm.$el, vnode);
-    } else {
-      // updates
-      vm.$el = vm.__patch__(prevVnode, vnode);
-    }
+    vm.__patch__(vm.$el, vnode);
   };
 
   return Vue;

@@ -8,7 +8,9 @@
     "dev": "rollup -c ./build/rollup.config.js --environment TARGET:development",
     "build": "npm run dev && npm run prod",
     "watch": "rollup -c ./build/rollup.config.js -w --environment TARGET:development",
-    "watch:parseHTML": "rollup -c ./build/rollup.config.js -w --environment TARGET:parseHTML"
+    "watch:parseHTML": "rollup -c ./build/rollup.config.js -w --environment TARGET:parseHTML",
+    "watch:generate": "rollup -c ./build/rollup.config.js -w --environment TARGET:generate",
+    "watch:patch": "rollup -c ./build/rollup.config.js -w --environment TARGET:patch"
   },
   "author": "",
   "license": "ISC",

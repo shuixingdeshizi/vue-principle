@@ -27,13 +27,26 @@ const builds = {
     entry: './src/index.js',
     dest: 'dist/vue.js',
     format: 'umd',
-    env: 'production',
-    banner
+    env: 'production'
   },
   'parseHTML': {
     moduleName: 'parseHTML',
-    entry: './src/compile/parser/parse-html.js',
+    entry: './src/compile/parse-html/index.js',
     dest: 'dist/parse-html.js',
+    format: 'umd',
+    env: 'production'
+  },
+  'generate': {
+    moduleName: 'generate',
+    entry: './src/compile/generate/index.js',
+    dest: 'dist/generate.js',
+    format: 'umd',
+    env: 'production'
+  },
+  'patch': {
+    moduleName: 'patch',
+    entry: './src/compile/patch/index.js',
+    dest: 'dist/patch.js',
     format: 'umd',
     env: 'production'
   }

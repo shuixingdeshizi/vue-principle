@@ -33,3 +33,5 @@ export function cached (fn) {
 }
 
 export const no = (a, b, c) => false;
+
+export const toString = Object.prototype.toString
