@@ -7,6 +7,7 @@ function patch (el, vnode) {
   createElm(vnode, insertedVnodeQueue, el)
 }
 
+// 创建元素
 function createElm (vnode, insertedVnodeQueue, parentElm) {
   vnode.elm = document.createElement(vnode.tag)
 
@@ -21,6 +22,7 @@ function createElm (vnode, insertedVnodeQueue, parentElm) {
   insert(parentElm, vnode.elm)
 }
 
+// 创建子元系
 function createChildren (vnode, children, insertedVnodeQueue) {
   if (Array.isArray(children)) {
     for (let i = 0; i < children.length; ++i) {
@@ -31,6 +33,7 @@ function createChildren (vnode, children, insertedVnodeQueue) {
   }
 }
 
+// 插入元素
 function insert (parent, elm) {
   parent.appendChild(elm)
 }
